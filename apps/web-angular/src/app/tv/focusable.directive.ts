@@ -1,4 +1,4 @@
-import { Directive, ElementRef, HostBinding, inject } from '@angular/core';
+import { Directive, ElementRef, HostBinding, HostListener, inject } from '@angular/core';
 
 /** Apply to a <button> or text <input> to make it a spatial-navigation target
  * (arrow keys / LG remote D-pad). Mirrors apps/web/src/tv-navigation/Focusable.tsx,
@@ -24,5 +24,16 @@ export class FocusableDirective {
   @HostBinding('class.focusable')
   get isButton(): boolean {
     return this.el.nativeElement.tagName === 'BUTTON';
+  }
+
+  // Focused buttons/cards scale up (see .focusable:focus), which can push
+  // their edge past a horizontally-scrolled row's clipped boundary — the
+  // browser's default scroll-into-view only aligns the (unscaled) nearest
+  // edge, so a card at the end of a row was left partially cut off. Centering
+  // horizontally instead guarantees the whole scaled-up element stays clear
+  // of the row's edges; 'nearest' vertically avoids needless page scroll.
+  @HostListener('focus')
+  onFocus(): void {
+    this.el.nativeElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }
 }

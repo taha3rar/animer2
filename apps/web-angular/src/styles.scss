@@ -64,7 +64,10 @@ button {
   display: flex;
   gap: 1.2vw;
   overflow-x: auto;
-  padding: 0.5vh 0.3vw 1.5vh;
+  // Horizontal padding must be enough to fit a focused card's scale(1.08)
+  // growth (see .focusable:focus) — otherwise the first/last card in the row
+  // clips against the scroll container's edge even when fully scrolled to it.
+  padding: 0.5vh 16px 1.5vh;
   scrollbar-width: none;
 }
 
