@@ -28,5 +28,17 @@ for (const file of ["appinfo.json", "icon.png", "largeIcon.png"]) {
   fs.copyFileSync(path.join(webosDir, file), path.join(outDir, file));
 }
 
+// webOS serves the installed app over file:// (no HTTP server), which never
+// sends a MIME type — browsers refuse to execute <script type="module"> in
+// that case ("strict MIME type checking is enforced for module scripts"),
+// producing a silently blank screen with no visible error. Neither output
+// bundle actually uses cross-chunk ESM import/export (esbuild inlines
+// everything per-chunk), so downgrading to classic scripts is safe and
+// preserves execution order (polyfills still runs before main, since classic
+// scripts execute in document order).
+const indexPath = path.join(outDir, "index.html");
+const index = fs.readFileSync(indexPath, "utf8");
+fs.writeFileSync(indexPath, index.replace(/<script ([^>]*)type="module"([^>]*)>/g, "<script $1$2>"));
+
 console.log(`webOS app assembled at ${outDir}`);
 console.log("Next: ares-package webos-dist   (requires LG's ares-cli)");

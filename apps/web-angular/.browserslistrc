@@ -1,0 +1,7 @@
+# webOS TV's embedded Chromium lags years behind desktop Chrome (webOS 6 ships
+# Chromium ~79, which predates optional chaining / nullish coalescing support
+# added in Chromium 80). Without this file Angular's esbuild builder assumes a
+# modern target and emits that syntax unlowered, which fails to parse at all on
+# the TV — a silent blank screen, since a module script parse error produces no
+# visible output. Floor set low enough to cover webOS 4/5/6 TVs, not just this one.
+Chrome >= 70

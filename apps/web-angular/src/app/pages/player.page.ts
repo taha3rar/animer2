@@ -245,8 +245,6 @@ export class PlayerPageComponent implements OnDestroy {
       this.api.getContinueWatching(profileId),
     ]);
 
-    console.log(content);
-
     this.content.set(content);
     this.episodeContext.set(episodeContext);
     this.preferences.set(preferences);
@@ -328,7 +326,6 @@ export class PlayerPageComponent implements OnDestroy {
     const adapter = this.createAdapter();
 
     this.adapter = adapter;
-    console.log(this.originalSubtitles)
     await adapter.load(content.videoUrl, {
       autoplay: true,
       startAtSeconds:
@@ -336,10 +333,10 @@ export class PlayerPageComponent implements OnDestroy {
           ? resumeAt
           : 0,
       subtitleUrl: this.originalSubtitles,
+      toProxyUrl: toPlayableUrl,
     });
     
     adapter.play();
-    console.log('loaded');
   }
 
   // ===========================================================================
@@ -387,8 +384,6 @@ export class PlayerPageComponent implements OnDestroy {
     });
 
     adapter.on('ended', () => {
-      console.log('ENDED');
-
       this.saveProgress(
         adapter.getDuration(),
         adapter.getDuration(),
@@ -612,12 +607,10 @@ export class PlayerPageComponent implements OnDestroy {
             resumeAt,
           subtitleUrl:
             this.subtitleBlobUrl(),
+          toProxyUrl: toPlayableUrl,
         },
       );
 
-      console.log(
-        `Player recovered successfully at ${resumeAt.toFixed(2)}s`,
-      );
       this.reloadAttempts=0;
     } catch (error) {
       console.error(

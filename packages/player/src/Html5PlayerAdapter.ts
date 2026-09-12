@@ -15,8 +15,9 @@ const HLS_URL_PATTERN = /\.m3u8(\?|$)/i;
 /**
  * Wraps a plain HTMLVideoElement. Used by the browser dev build and by the webOS
  * client, since webOS's native video playback is exposed through a standard
- * HTML5 <video> element. Sources ending in .m3u8 go through hls.js unless the
- * platform already plays HLS natively (Safari, and webOS's own video element).
+ * HTML5 <video> element. Sources ending in .m3u8 go through hls.js whenever it's
+ * supported at all (see the native-HLS caveat in load() below) — native <video src>
+ * is only the last-resort fallback for platforms hls.js genuinely can't run on.
  */
 export class Html5PlayerAdapter implements PlayerAdapter {
   private video: HTMLVideoElement;
@@ -52,45 +53,91 @@ export class Html5PlayerAdapter implements PlayerAdapter {
     bind("canplay", () => this.emit("canplay", undefined));
     bind("error", () =>
       this.emit("error", {
-        message: this.video.error?.message ?? "Unknown playback error",
+        message: `${this.video.error?.message ?? "Unknown playback error"} (code ${this.video.error?.code ?? "?"})`,
       })
     );
   }
 
   async load(src: string, options: LoadOptions = {}): Promise<void> {
     this.destroyHls();
-    const canPlayNativeHls = this.video.canPlayType("application/vnd.apple.mpegurl") !== "";
-    const useHlsJs = HLS_URL_PATTERN.test(src) && !canPlayNativeHls && Hls.isSupported();
+    // canPlayType("application/vnd.apple.mpegurl") is only trustworthy as a
+    // capability signal on Safari — some smart TVs (confirmed: webOS 6, LG
+    // 55UP7750PVB) report non-empty here despite native playback then failing
+    // with MEDIA_ELEMENT_ERROR: Format error. So hls.js is used whenever it
+    // says it's supported at all, and native is only the fallback when it
+    // isn't — not the other way around.
+    const useHlsJs = HLS_URL_PATTERN.test(src) && Hls.isSupported();
 
     if (useHlsJs) {
-      console.log("USE HLS")
       const hls = new Hls();
+      let mediaErrorRecoveries = 0;
+      const MAX_MEDIA_ERROR_RECOVERIES = 3;
       // Without this, a failed manifest/segment/key load (bad proxy response,
       // network hiccup, CORS, etc) fails completely silently — no DOM "error"
       // event fires since hls.js is doing its own fetching outside the native
       // <video> element's normal resource-loading pipeline.
+      //
+      // Per hls.js's recommended pattern, a fatal error isn't necessarily
+      // unrecoverable: NETWORK_ERROR can usually just retry the failed load,
+      // and MEDIA_ERROR (decode pipeline failures — seen on this TV's hardware
+      // decoder with certain HLS renditions) can often self-heal via
+      // recoverMediaError(), which re-attaches the MediaSource without a full
+      // player reload. Only give up (bubble to the app's heavier full-reload
+      // recovery) for other fatal error types or once recovery keeps failing.
       hls.on(Hls.Events.ERROR, (_event, data) => {
         // eslint-disable-next-line no-console
         console.error("[Html5PlayerAdapter] hls.js error", data);
-        if (data.fatal) {
-          this.emit("error", { message: `HLS playback error (${data.details}): ${data.type}` });
+        if (!data.fatal) return;
+
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          hls.startLoad();
+          return;
         }
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaErrorRecoveries < MAX_MEDIA_ERROR_RECOVERIES) {
+          mediaErrorRecoveries++;
+          // recoverMediaError() alone just re-attaches and lets ABR pick a
+          // level again — usually the SAME level that just failed to decode
+          // (confirmed on this TV: 1080p's High10-profile encoding fails to
+          // decode in hardware every time, while 360p/720p play fine), so
+          // without this the player loops forever recovering into the same
+          // broken level. Permanently cap ABR below whichever level was
+          // active when the decode failed.
+          const failedLevel = hls.currentLevel;
+          if (failedLevel > 0) {
+            hls.autoLevelCapping = failedLevel - 1;
+          }
+          hls.recoverMediaError();
+          return;
+        }
+
+        this.emit("error", { message: `HLS playback error (${data.details}): ${data.type}` });
+      });
+      // Forward progress after a recovery means it actually worked — reset the
+      // counter so a later, unrelated decode hiccup gets its own full retry
+      // budget instead of inheriting an exhausted one from much earlier.
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        mediaErrorRecoveries = 0;
       });
       hls.attachMedia(this.video);
-      hls.loadSource(src);
-      
+      // hls.js fetches the manifest/segments itself via fetch/XHR, which — unlike
+      // native <video src> loading — enforces CORS, so a CORS-restricted source
+      // (AniZone's video CDN only allows Access-Control-Allow-Origin: https://anizone.to)
+      // needs the same-origin proxy here.
+      hls.loadSource(options.toProxyUrl ? options.toProxyUrl(src) : src);
+
       this.hls = hls;
     } else {
+      // Native <video src> loading isn't subject to CORS (unlike fetch/XHR),
+      // so the raw CORS-restricted URL works directly here and proxying would
+      // only add a redundant hop.
       this.video.src = src;
     }
 
     this.video.autoplay = options.autoplay ?? false;
-    console.log(options)
     await this.setSource(src);
     await this.setSubtitleUrl(options.subtitleUrl ?? null);
 
     if (!useHlsJs) {
-      console.log("??")
       this.video.load();
     }
 
@@ -215,17 +262,9 @@ export class Html5PlayerAdapter implements PlayerAdapter {
       this.sourceEl = null;
     }
     if (!url) return;
-    console.log("HERE");
     const source = document.createElement("source");
     source.src = url;
     source.type = "application/x-mpegurl";
-    source.setAttribute("data-vds","");
-    // Dynamically-added tracks don't always start "showing" on their own —
-    // force it once the cue data has actually loaded.
-    source.addEventListener("load", () => {
-      // if (track.track) track.track.mode = "showing";
-      console.log(source);
-    });
     this.video.appendChild(source);
     this.sourceEl = source;
   }
