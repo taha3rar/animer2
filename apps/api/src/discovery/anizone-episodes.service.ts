@@ -24,13 +24,21 @@ export class AnizoneEpisodesService {
     if (cached) return cached.episodes;
 
     const episodes = await this.scrapeEpisodeList(slug);
-    await this.cacheModel.create({ slug, episodes });
+    // Don't cache an empty result — it's more likely a transient scrape
+    // failure (blocked/rate-limited/layout change) than a genuinely
+    // episode-less show, and caching it would hide the failure forever.
+    if (episodes.length > 0) {
+      await this.cacheModel.create({ slug, episodes });
+    }
     return episodes;
   }
 
   private async scrapeEpisodeList(slug: string) {
     const res = await fetch(`${ANIZONE_BASE_URL}/${slug}/1`);
     const html = await res.text();
+    if (!res.ok) {
+      throw new Error(`Failed to load AniZone episode page: ${res.status} | body: ${html.slice(0, 300)}`);
+    }
     return parseEpisodeList(html);
   }
 }
