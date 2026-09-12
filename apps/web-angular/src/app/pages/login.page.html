@@ -1,0 +1,17 @@
+<div class="screen">
+  <form class="login-form" (submit)="handleSubmit($event)">
+    <h1>PrivateFlix</h1>
+    <input appFocusable type="text" placeholder="Username" [(ngModel)]="username" name="username" autofocus required />
+    <input appFocusable type="password" placeholder="Password" [(ngModel)]="password" name="password" required />
+    @if (error()) {
+      <p class="error-text">{{ error() }}</p>
+    }
+    <button appFocusable type="submit" class="login-submit" [disabled]="loading()">
+      @if (loading()) {
+        <span class="spinner spinner-sm"></span>
+      } @else {
+        Sign in
+      }
+    </button>
+  </form>
+</div>

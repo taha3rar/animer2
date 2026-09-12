@@ -1,0 +1,18 @@
+<button appFocusable class="card" (click)="cardClick.emit()">
+  @if (imageUrl) {
+    <img [src]="imageUrl" alt="" loading="lazy" />
+  } @else {
+    <div class="card-image-placeholder">🎬</div>
+  }
+  @if (progressRatio != null) {
+    <div class="card-progress">
+      <div class="card-progress-fill" [style.width.%]="clampedProgress()"></div>
+    </div>
+  }
+  <div class="card-meta-row">
+    <span class="card-title">{{ title }}</span>
+  </div>
+  @if (episodeTag) {
+    <span class="card-episode-tag card-episode-tag-block">{{ episodeTag }}</span>
+  }
+</button>

@@ -1,0 +1,97 @@
+<div class="modal-backdrop" data-modal-root (click)="closeClick.emit()">
+  <div class="modal-panel" (keydown)="handleKeyDown($event)" (click)="$event.stopPropagation()">
+    @if (coverUrl(); as cover) {
+      <img class="modal-cover" [src]="cover" alt="" />
+    }
+    <div class="modal-body">
+      <h2>{{ displayTitle() }}</h2>
+      <p class="modal-meta">
+        {{ meta() }}
+        @if (episodeCount() != null) {
+          · {{ episodeCount() }} episode{{ episodeCount() === 1 ? '' : 's' }}
+        }
+        @if (loadingEpisodeCount()) {
+          · counting episodes…
+        }
+      </p>
+      @if (searchItem?.tags?.length) {
+        <p class="modal-tags">{{ tagNames() }}</p>
+      }
+      @if (description(); as desc) {
+        <p class="modal-description">{{ desc }}</p>
+      }
+
+      @if (currentProgress(); as cp) {
+        <p class="modal-progress">Continue: S{{ cp.seasonNumber }} E{{ cp.episodeNumber }} — {{ cp.title }}</p>
+      }
+
+      <div class="modal-actions">
+        <button appFocusable class="btn-primary" [disabled]="isResolvingPrimary()" (click)="playPrimary()" autofocus>
+          @if (isResolvingPrimary()) {
+            <span class="spinner spinner-sm"></span>
+          } @else {
+            ▶ {{ currentProgress() ? 'Continue Watching' : 'Play' }}
+          }
+        </button>
+        @if (series) {
+          <button appFocusable (click)="toggleFavorite.emit()">
+            {{ isFavorite ? '♥ Remove Favorite' : '♡ Add to Favorites' }}
+          </button>
+        } @else if (searchItem) {
+          <button appFocusable [disabled]="isImporting" (click)="importClick.emit()">
+            @if (isImporting) {
+              <span class="spinner spinner-sm"></span>
+            } @else {
+              + Add to Library
+            }
+          </button>
+        }
+        <button appFocusable (click)="closeClick.emit()">Close</button>
+      </div>
+
+      @if (series || searchItem) {
+        <div class="episode-list">
+          @if (loadingEpisodeCount() && !episodeRows().length) {
+            <div class="inline-spinner-row"><span class="spinner spinner-sm"></span> Loading episodes…</div>
+          }
+          @for (ep of episodeRows(); track ep.episodeNumber) {
+            <button appFocusable class="episode-row" [disabled]="ep.resolving" (click)="playEpisode(ep)">
+              <div class="episode-row-thumb">
+                @if (ep.thumbnailUrl) {
+                  <img [src]="ep.thumbnailUrl" alt="" loading="lazy" />
+                }
+                <div class="episode-row-play">
+                  @if (ep.resolving) {
+                    <span class="spinner spinner-sm"></span>
+                  } @else {
+                    ▶
+                  }
+                </div>
+                @if (ep.progress != null) {
+                  <div class="episode-row-progress">
+                    <div class="episode-row-progress-fill" [style.width.%]="ep.progress * 100"></div>
+                  </div>
+                }
+              </div>
+              <div class="episode-row-info">
+                <div class="episode-row-title-line">
+                  <span class="episode-row-number">{{ ep.episodeNumber }}.</span>
+                  <span class="episode-row-title">{{ ep.title }}</span>
+                  @if (ep.isCurrent) {
+                    <span class="episode-row-badge">Continue</span>
+                  }
+                </div>
+                @if (ep.durationSeconds) {
+                  <div class="episode-row-sub">{{ formatDuration(ep.durationSeconds) }}</div>
+                }
+              </div>
+            </button>
+          }
+          @if (!loadingEpisodeCount() && !episodeRows().length) {
+            <p class="modal-hint">No episode list available for this title yet.</p>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>

@@ -1,0 +1,15 @@
+{
+  "name": "private-streaming-app",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:web-angular": "npm run start --workspace=apps/web-angular",
+    "package:webos": "npm run package:webos --workspace=apps/web-angular",
+    "build": "npm run build --workspaces --if-present"
+  }
+}

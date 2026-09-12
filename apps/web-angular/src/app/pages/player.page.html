@@ -1,0 +1,181 @@
+<div class="player-shell" (mousemove)="showControls()">
+  <video #video></video>
+
+  @if (loading()) {
+    <div class="player-buffering"><span class="spinner"></span></div>
+  } @else if (buffering()) {
+    <div class="player-buffering"><span class="spinner"></span></div>
+  }
+
+  @if (controlsVisible()) {
+    <div class="player-topbar">
+      <button
+        #backBtnEl
+        appFocusable
+        [appDefaultFocus]="loading()"
+        class="player-icon-btn"
+        aria-label="Back"
+        title="Back"
+        (click)="goBack()"
+        (keydown)="handleTopBarKeyDown($event)"
+      >
+        <app-icon name="arrow-left" />
+      </button>
+      <div class="player-topbar-title">
+        {{ title() }}{{ subtitleLabel() ? ' — ' + subtitleLabel() : '' }}
+      </div>
+      @if (subtitleTracks().length > 0) {
+        <button
+          appFocusable
+          class="player-icon-btn"
+          aria-label="Subtitles"
+          title="Subtitles"
+          (click)="subtitlesPanelOpen.set(!subtitlesPanelOpen())"
+          (keydown)="handleTopBarKeyDown($event)"
+        >
+          <app-icon name="captions" />
+        </button>
+      }
+      <button
+        appFocusable
+        class="player-icon-btn"
+        aria-label="Refresh player"
+        title="Refresh player"
+        (click)="refreshPlayer()"
+        (keydown)="handleTopBarKeyDown($event)"
+      >
+        <app-icon name="refresh" />
+      </button>
+    </div>
+  }
+
+  @if (controlsVisible() && !loading()) {
+    <div class="player-center">
+      <button
+        #playBtnEl
+        appFocusOnSpawn
+        appDefaultFocus
+        class="player-center-play"
+        aria-label="Play/Pause"
+        (click)="activatePlayButton()"
+        (keydown)="handlePlayButtonKeyDown($event)"
+      >
+        <app-icon [name]="isPaused() ? 'play' : 'pause'" />
+      </button>
+    </div>
+
+    <div class="player-controls">
+      <div class="player-scrubber-wrap">
+        @if (isSeeking()) {
+          <div class="player-seek-preview" [style.left.%]="progressPercent()">
+            @if (previewStoryboardCue(); as cue) {
+              <div
+                class="player-seek-thumb"
+                [style.background-image]="'url(' + cue.imageUrl + ')'"
+                [style.background-position-x.px]="-cue.x"
+                [style.background-position-y.px]="-cue.y"
+                [style.width.px]="cue.width"
+                [style.height.px]="cue.height"
+              ></div>
+            } @else {
+              <div class="player-seek-thumb player-seek-thumb-blank"></div>
+            }
+            <div class="player-seek-time">{{ formatTime(previewTime()) }}</div>
+          </div>
+        }
+        <div class="player-progress-bar" (click)="seekToClick($event)">
+          <div class="player-progress-fill" [style.width.%]="progressPercent()"></div>
+        </div>
+      </div>
+
+      <div class="player-time-row">
+        <span>{{ formatTime(displayTime()) }}</span>
+        <span>{{ formatTime(Math.max(duration() - displayTime(), 0)) }} remaining</span>
+      </div>
+
+      @if (isEpisode && (episodeContext()?.previousEpisode || episodeContext()?.nextEpisode)) {
+        <div class="player-buttons">
+          @if (episodeContext()?.previousEpisode) {
+            <button
+              #prevBtnEl
+              appFocusable
+              class="player-nav-btn"
+              aria-label="Previous episode"
+              (click)="goToNeighborEpisode(episodeContext()?.previousEpisode?.id)"
+              (keydown)="handleNavRowKeyDown($event, 'previous')"
+            >
+              <app-icon name="skip-back" /> Previous
+            </button>
+          }
+          @if (episodeContext()?.nextEpisode) {
+            <button
+              #nextBtnEl
+              appFocusable
+              class="player-nav-btn"
+              aria-label="Next episode"
+              (click)="goToNeighborEpisode(episodeContext()?.nextEpisode?.id)"
+              (keydown)="handleNavRowKeyDown($event, 'next')"
+            >
+              Next <app-icon name="skip-forward" />
+            </button>
+          }
+        </div>
+      }
+
+      @if (subtitlesPanelOpen()) {
+        <div class="player-subtitles-panel">
+          <button
+            appFocusable
+            class="player-subtitle-row"
+            [class.player-subtitle-active]="selectedSubtitle() == null"
+            (click)="selectSubtitle(null)"
+          >
+            @if (selectedSubtitle() == null) {
+              <app-icon name="check" />
+            }
+            Off
+          </button>
+          @for (track of subtitleTracks(); track track.url) {
+            <button
+              appFocusable
+              class="player-subtitle-row"
+              [class.player-subtitle-active]="selectedSubtitle()?.url === track.url"
+              (click)="selectSubtitle(track)"
+            >
+              @if (selectedSubtitle()?.url === track.url) {
+                <app-icon name="check" />
+              }
+              {{ track.title }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (showSkipIntro()) {
+    <button
+      #skipIntroBtnEl
+      appFocusOnSpawn
+      class="player-skip-intro"
+      [class.controls-hidden]="!controlsVisible()"
+      (click)="skipIntro()"
+      (keydown)="handleSkipIntroKeyDown($event)"
+    >
+      Skip Intro <app-icon name="fast-forward" />
+    </button>
+  }
+
+  @if (showNextEpisodePrompt()) {
+    <button
+      #nextEpisodePromptBtnEl
+      appFocusOnSpawn
+      class="player-next-episode-prompt"
+      [class.controls-hidden]="!controlsVisible()"
+      (click)="goToNeighborEpisode(episodeContext()?.nextEpisode?.id)"
+      (keydown)="handleNextEpisodePromptKeyDown($event)"
+    >
+      Next Episode <app-icon name="skip-forward" />
+    </button>
+  }
+</div>

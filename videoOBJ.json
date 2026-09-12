@@ -1,0 +1,26 @@
+{
+  src: 'https://seiryuu.vid-cdn.xyz/b0209a18-190d-4cad-b8dd-c4f602373768/master.m3u8',
+  storage: 'v-b0209a18-190d-4cad-b8dd-c4f602373768',
+  snapshot: 'https://seiryuu.vid-cdn.xyz/b0209a18-190d-4cad-b8dd-c4f602373768/snapshot.webp',
+  storyboard: 'https://seiryuu.vid-cdn.xyz/b0209a18-190d-4cad-b8dd-c4f602373768/storyboard.vtt',
+  chapter: 'https://seiryuu.vid-cdn.xyz/b0209a18-190d-4cad-b8dd-c4f602373768/chapters.vtt',
+  subtitles: [
+    {
+      title: 'English(SRT)',
+      format: 'srt',
+      language: 'en',
+      default: true,
+      forced: 'no',
+      file: 'https://seiryuu.vid-cdn.xyz/b0209a18-190d-4cad-b8dd-c4f602373768/subtitles/2_en.srt'
+    },
+    {
+      title: 'Only Song & Signs(SRT)',
+      format: 'srt',
+      language: 'en',
+      default: false,
+      forced: 'no',
+      file: 'https://seiryuu.vid-cdn.xyz/b0209a18-190d-4cad-b8dd-c4f602373768/subtitles/3_en.srt'
+    }
+  ],
+  fonts: []
+}

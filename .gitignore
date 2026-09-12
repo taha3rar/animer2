@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+webos-dist/
+.angular/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vscode/
+media/
+.mongo-data/
+generated/
+.turbo/
+coverage/
+.claude/settings.local.json

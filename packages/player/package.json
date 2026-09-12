@@ -1,0 +1,12 @@
+{
+  "name": "@streaming/player",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@streaming/types": "0.0.1",
+    "hls.js": "^1.5.17"
+  }
+}

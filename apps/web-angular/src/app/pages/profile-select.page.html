@@ -1,0 +1,17 @@
+@if (isLoading()) {
+  <div class="center-message"><span class="spinner"></span></div>
+} @else if (error()) {
+  <div class="center-message error-text">Could not load profiles.</div>
+} @else {
+  <div class="screen">
+    <h1>Who's watching?</h1>
+    <div class="profile-grid">
+      @for (profile of profiles(); track profile.id) {
+        <button appFocusable class="profile-card" (click)="choose(profile)">
+          <span class="avatar-circle">{{ profile.name.charAt(0).toUpperCase() }}</span>
+          {{ profile.name }}
+        </button>
+      }
+    </div>
+  </div>
+}

@@ -1,0 +1,12 @@
+<button appFocusable class="card" (click)="cardClick.emit()">
+  @if (item.coverUrl) {
+    <img [src]="item.coverUrl" alt="" />
+  } @else {
+    <div class="card-image-placeholder-plain"></div>
+  }
+  <span class="card-title">{{ item.title }}</span>
+  @if (meta()) {
+    <span class="card-subtitle">{{ meta() }}</span>
+  }
+  <span class="card-action">{{ isInLibrary ? '✓ In Library' : 'View' }}</span>
+</button>

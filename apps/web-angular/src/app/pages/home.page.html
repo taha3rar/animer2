@@ -1,0 +1,136 @@
+<div class="screen home-shell">
+  <div class="app-header home-header">
+    <span class="brand">PrivateFlix</span>
+    <button appFocusable class="profile-chip" (click)="switchProfile()">
+      <span class="avatar-circle">{{ activeProfile()!.name.charAt(0).toUpperCase() }}</span>
+      {{ activeProfile()!.name }}
+    </button>
+  </div>
+
+  <div class="home-search-wrap">
+    <form class="search-bar" (submit)="handleSearchSubmit($event)">
+      <app-icon name="search" class="search-bar-icon" />
+      <input
+        appFocusable
+        appDefaultFocus
+        type="search"
+        placeholder="Search AniZone for anime to add…"
+        [(ngModel)]="searchInput"
+        name="search"
+      />
+      <button appFocusable type="submit" class="search-bar-submit" [disabled]="!searchInput.trim() || searching()">
+        @if (searching()) {
+          <span class="spinner spinner-sm"></span> Searching…
+        } @else {
+          <app-icon name="search" /> Search
+        }
+      </button>
+    </form>
+  </div>
+
+  @if (!initialLoading() && heroItem(); as hero) {
+    <div class="hero" [style.background-image]="hero.backdropUrl ? 'url(' + hero.backdropUrl + ')' : undefined">
+      <div class="hero-content">
+        <span class="hero-eyebrow">{{ hero.meta }}</span>
+        <h1 class="hero-title">{{ hero.title }}</h1>
+        @if (hero.description) {
+          <p class="hero-description">{{ hero.description }}</p>
+        }
+        <div class="hero-actions">
+          <button appFocusable class="btn-primary" (click)="activateHero(hero)">
+            <app-icon name="play" /> {{ hero.primaryLabel }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="home-rows">
+    @if (searchResults()?.items?.length) {
+      <app-row [title]="'Results for &quot;' + submittedQuery() + '&quot;'">
+        @for (item of searchResults()!.items; track item.slug) {
+          <app-anizone-result-card
+            [item]="item"
+            [isInLibrary]="isInLibrary(item)"
+            (cardClick)="openSearchPreview(item)"
+          />
+        }
+      </app-row>
+    }
+    @if (searchError()) {
+      <p class="error-text">Couldn't reach AniZone — try again in a moment.</p>
+    }
+    @if (submittedQuery() && !searching() && searchResults()?.items?.length === 0) {
+      <p>No results for "{{ submittedQuery() }}".</p>
+    }
+
+    @if (initialLoading()) {
+      <app-skeleton-row [cardCount]="4" />
+      <app-skeleton-row [cardCount]="6" />
+      <app-skeleton-row [cardCount]="6" />
+    } @else {
+      @if (continueWatching().length) {
+        <app-row title="Continue Watching">
+          @for (item of continueWatching(); track trackCw(item)) {
+            <app-content-card
+              [title]="item.kind === 'episode' ? (item.seriesTitle + ' — ' + item.title) : item.title"
+              [episodeTag]="item.kind === 'episode' && item.seasonNumber != null ? ('S' + item.seasonNumber + ' E' + item.episodeNumber) : undefined"
+              [imageUrl]="item.posterUrl"
+              [progressRatio]="item.positionSeconds / Math.max(item.durationSeconds, 1)"
+              (cardClick)="navigate('/watch/' + item.kind + '/' + (item.episodeId ?? item.movieId))"
+            />
+          }
+        </app-row>
+      }
+
+      @if (favorites().length) {
+        <app-row title="Favorites">
+          @for (entry of favorites(); track entry.id) {
+            @if (entry.series ?? entry.movie; as content) {
+              <app-content-card
+                [title]="content.title"
+                [imageUrl]="content.posterUrl"
+                (cardClick)="entry.series ? openSeriesPreview(entry.series) : navigate('/watch/movie/' + entry.movie!.id)"
+              />
+            }
+          }
+        </app-row>
+      }
+
+      @if (series().length) {
+        <app-row title="Series">
+          @for (s of series(); track s.id) {
+            <app-content-card [title]="s.title" [imageUrl]="s.posterUrl" (cardClick)="openSeriesPreview(s)" />
+          }
+        </app-row>
+      }
+
+      @if (movies().length) {
+        <app-row title="Movies">
+          @for (m of movies(); track m.id) {
+            <app-content-card [title]="m.title" [imageUrl]="m.posterUrl" (cardClick)="navigate('/watch/movie/' + m.id)" />
+          }
+        </app-row>
+      }
+
+      @if (!series().length && !movies().length && !continueWatching().length && !favorites().length) {
+        <div class="center-message empty-state">
+          <p>Your library is empty — search AniZone above to add something to watch.</p>
+        </div>
+      }
+    }
+  </div>
+
+  @if (preview(); as p) {
+    <app-anizone-preview-modal
+      [series]="p.series"
+      [searchItem]="p.searchItem"
+      [isFavorite]="!!(p.series && favoriteEntryFor(p.series))"
+      [continueWatching]="continueWatching()"
+      [isImporting]="!!p.searchItem && importingSlug() === p.searchItem.slug"
+      (importClick)="p.searchItem && handleImport(p.searchItem)"
+      (closeClick)="preview.set(null)"
+      (toggleFavorite)="p.series && toggleFavorite(p.series)"
+    />
+  }
+</div>
