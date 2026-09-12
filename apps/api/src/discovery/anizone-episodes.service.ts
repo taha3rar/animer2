@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { GatewayTimeoutException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { AnizoneEpisodeCache, AnizoneEpisodeCacheDocument } from "../database/schemas/anizone-episode-cache.schema";
@@ -37,7 +37,9 @@ export class AnizoneEpisodesService {
     const res = await fetch(`${ANIZONE_BASE_URL}/${slug}/1`);
     const html = await res.text();
     if (!res.ok) {
-      throw new Error(`Failed to load AniZone episode page: ${res.status} | body: ${html.slice(0, 300)}`);
+      throw new GatewayTimeoutException(
+        `Failed to load AniZone episode page: ${res.status} | body: ${html.slice(0, 300)}`
+      );
     }
     return parseEpisodeList(html);
   }
