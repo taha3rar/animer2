@@ -58,7 +58,10 @@ export class AnizoneService {
       headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
     });
     if (!res.ok) {
-      throw new GatewayTimeoutException(`Failed to load AniZone index page: ${res.status}`);
+      const bodySnippet = (await res.text().catch(() => "")).slice(0, 300);
+      throw new GatewayTimeoutException(
+        `Failed to load AniZone index page: ${res.status} | body: ${bodySnippet}`
+      );
     }
 
     const cookieHeader = res.headers
