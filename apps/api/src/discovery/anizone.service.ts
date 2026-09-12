@@ -1,13 +1,12 @@
 import { GatewayTimeoutException, Injectable } from "@nestjs/common";
-import type { HTTPRequest } from "puppeteer";
 import type { AnizoneSearchItem, AnizoneSearchResult, AnizoneTag } from "@streaming/types";
-import { AnizoneBrowserService } from "./anizone-browser.service";
 
 const ANIZONE_INDEX_URL = "https://anizone.to/anime";
-// AniZone's search box is a Livewire-bound input with no stable id/name — this
-// class selector is what scrape.js found to work when this was reverse-engineered.
-const SEARCH_INPUT_SELECTOR = "input.border-slate-700";
-const SEARCH_TIMEOUT_MS = 20_000;
+const ANIZONE_UPDATE_URL = "https://anizone.to/livewire/update";
+const ANIZONE_COMPONENT_NAME = "pages.anime-index";
+
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
 type RawAnizoneItem = {
   slug: string;
@@ -28,73 +27,107 @@ type RawAnizoneSearchPayload = {
   hasMore?: boolean;
 };
 
+type LivewireBootstrap = {
+  cookieHeader: string;
+  csrfToken: string;
+  snapshot: string;
+};
+
+// AniZone's search box is a Laravel Livewire v3 component with no plain REST
+// API. Rather than driving a real browser (puppeteer) to type into it and
+// capture the resulting XHR, we replicate Livewire's wire protocol directly:
+// the index page's HTML embeds a `wire:snapshot` blob (server-signed state,
+// replayed byte-for-byte — we never need to forge its checksum) plus a CSRF
+// token and session cookies, which is everything /livewire/update needs to
+// simulate "the user typed a search query". See poc-lightweight-anizone-search.js
+// at the repo root for the reverse-engineering notes and verification this
+// was cross-checked against a real puppeteer-captured request.
 @Injectable()
 export class AnizoneService {
-  constructor(private readonly browserService: AnizoneBrowserService) {}
-
   async search(query: string): Promise<AnizoneSearchResult> {
-    const browser = await this.browserService.getBrowser();
-    const page = await browser.newPage();
-
-    try {
-      const payload = await this.captureSearchResponse(page, query);
-      return {
-        items: (payload.items ?? []).map(toAnizoneSearchItem),
-        hasMore: Boolean(payload.hasMore),
-      };
-    } finally {
-      await page.close().catch(() => {});
-    }
+    const bootstrap = await this.fetchLivewireBootstrap();
+    const payload = await this.postLivewireSearchUpdate(bootstrap, query);
+    return {
+      items: (payload.items ?? []).map(toAnizoneSearchItem),
+      hasMore: Boolean(payload.hasMore),
+    };
   }
 
-  // Mirrors scrape.js: AniZone's search box has no plain HTTP API, so we drive
-  // a real page, type into the Livewire-bound input, and capture the resulting
-  // /livewire/update request's JSON response instead of scraping rendered HTML.
-  private captureSearchResponse(
-    page: import("puppeteer").Page,
+  private async fetchLivewireBootstrap(): Promise<LivewireBootstrap> {
+    const res = await fetch(ANIZONE_INDEX_URL, {
+      headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+    });
+    if (!res.ok) {
+      throw new GatewayTimeoutException(`Failed to load AniZone index page: ${res.status}`);
+    }
+
+    const cookieHeader = res.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .join("; ");
+    const html = await res.text();
+
+    const csrfMatch = html.match(/<meta name="csrf-token" content="([^"]+)">/);
+    if (!csrfMatch) throw new GatewayTimeoutException("AniZone csrf-token meta tag not found");
+
+    const snapshotRe = /wire:snapshot="([^"]*)"/g;
+    let match: RegExpExecArray | null;
+    let snapshot: string | null = null;
+    while ((match = snapshotRe.exec(html))) {
+      const decoded = decodeHtmlAttrEntities(match[1]);
+      if (decoded.includes(`"${ANIZONE_COMPONENT_NAME}"`)) {
+        snapshot = decoded;
+        break;
+      }
+    }
+    if (!snapshot) throw new GatewayTimeoutException("AniZone search component snapshot not found");
+
+    return { cookieHeader, csrfToken: csrfMatch[1], snapshot };
+  }
+
+  private async postLivewireSearchUpdate(
+    bootstrap: LivewireBootstrap,
     query: string
   ): Promise<RawAnizoneSearchPayload> {
-    return new Promise<RawAnizoneSearchPayload>((resolve, reject) => {
-      let matchedRequest: HTTPRequest | null = null;
-      let settled = false;
+    const payload = {
+      _token: bootstrap.csrfToken,
+      components: [
+        {
+          snapshot: bootstrap.snapshot,
+          updates: { search: query },
+          calls: [],
+        },
+      ],
+    };
 
-      const finish = (fn: () => void) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        fn();
-      };
-
-      const timeout = setTimeout(() => {
-        finish(() => reject(new GatewayTimeoutException("Timed out waiting for AniZone search results")));
-      }, SEARCH_TIMEOUT_MS);
-
-      page.on("request", (request) => {
-        try {
-          const url = new URL(request.url());
-          if (url.pathname === "/livewire/update") matchedRequest = request;
-        } catch {
-          // ignore requests with unparseable URLs
-        }
-      });
-
-      page.on("response", (response) => {
-        if (!matchedRequest || response.request() !== matchedRequest) return;
-        response
-          .json()
-          .then((body) => finish(() => resolve(extractSearchPayload(body))))
-          .catch((err) => finish(() => reject(err instanceof Error ? err : new Error(String(err)))));
-      });
-
-      (async () => {
-        await page.goto(ANIZONE_INDEX_URL, { waitUntil: "networkidle2" });
-        await page.waitForSelector(SEARCH_INPUT_SELECTOR);
-        await page.click(SEARCH_INPUT_SELECTOR, { count: 3 });
-        await page.keyboard.press("Backspace");
-        await page.type(SEARCH_INPUT_SELECTOR, query, { delay: 50 });
-      })().catch((err) => finish(() => reject(err)));
+    const res = await fetch(ANIZONE_UPDATE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
+        "x-livewire": "",
+        Referer: ANIZONE_INDEX_URL,
+        Cookie: bootstrap.cookieHeader,
+      },
+      body: JSON.stringify(payload),
     });
+
+    const text = await res.text();
+    if (!res.ok) {
+      throw new GatewayTimeoutException(`AniZone search request failed: ${res.status}`);
+    }
+
+    return extractSearchPayload(JSON.parse(text));
   }
+}
+
+function decodeHtmlAttrEntities(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
 }
 
 // The search results live wherever the Livewire response dispatched an event
