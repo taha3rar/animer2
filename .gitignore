@@ -13,6 +13,7 @@ webos-dist/
 media/
 .mongo-data/
 generated/
+apps/web-angular/src/app/version.ts
 .turbo/
 coverage/
 .claude/settings.local.json

@@ -72,8 +72,14 @@ export class AnizonePreviewModalComponent implements OnChanges {
       const slug = this.slug();
       if (slug) {
         this.loadingEpisodeCount.set(true);
-        this.api
-          .getAnizoneEpisodes(slug)
+        // A library series' own sourceProvider is authoritative; a not-yet-
+        // imported search result only ever comes from AnimeHeaven now (see
+        // home.page.ts's handleSearchSubmit).
+        const fetchEpisodes =
+          this.series?.sourceProvider === 'anizone'
+            ? this.api.getAnizoneEpisodes(slug)
+            : this.api.getAnimeheavenEpisodes(slug);
+        fetchEpisodes
           .then((eps) => this.anizoneEpisodes.set(eps))
           .catch(() => this.anizoneEpisodes.set([]))
           .finally(() => this.loadingEpisodeCount.set(false));

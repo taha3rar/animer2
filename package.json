@@ -10,6 +10,8 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "dev:web-angular": "npm run start --workspace=apps/web-angular",
     "package:webos": "npm run package:webos --workspace=apps/web-angular",
+    "deploy:webos": "npm run deploy:webos --workspace=apps/web-angular",
+    "deploy": "npm run package:webos --workspace=apps/web-angular && npm run deploy:webos --workspace=apps/web-angular",
     "build": "npm run build --workspaces --if-present"
   }
 }

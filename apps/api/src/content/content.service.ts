@@ -6,6 +6,7 @@ import { Season, SeasonDocument } from "../database/schemas/season.schema";
 import { Episode, EpisodeDocument } from "../database/schemas/episode.schema";
 import { Movie, MovieDocument } from "../database/schemas/movie.schema";
 import { AnizoneEpisodesService } from "../discovery/anizone-episodes.service";
+import { AnimeheavenEpisodesService } from "../discovery/animeheaven-episodes.service";
 import { DiscoveryService } from "../discovery/discovery.service";
 
 @Injectable()
@@ -16,6 +17,7 @@ export class ContentService {
     @InjectModel(Episode.name) private readonly episodeModel: Model<EpisodeDocument>,
     @InjectModel(Movie.name) private readonly movieModel: Model<MovieDocument>,
     private readonly anizoneEpisodesService: AnizoneEpisodesService,
+    private readonly animeheavenEpisodesService: AnimeheavenEpisodesService,
     private readonly discoveryService: DiscoveryService
   ) {}
 
@@ -115,8 +117,11 @@ export class ContentService {
     if ((!previousEpisode || !nextEpisode) && season) {
       const series = await this.seriesModel.findById(season.seriesId);
       if (series?.sourceSlug) {
-        const anizoneEpisodes = await this.anizoneEpisodesService.getEpisodeList(series.sourceSlug);
-        const hasNumber = (n: number) => anizoneEpisodes.some((e) => e.episodeNumber === n);
+        const fullEpisodeList =
+          series.sourceProvider === "animeheaven"
+            ? await this.animeheavenEpisodesService.getEpisodeList(series.sourceSlug)
+            : await this.anizoneEpisodesService.getEpisodeList(series.sourceSlug);
+        const hasNumber = (n: number) => fullEpisodeList.some((e) => e.episodeNumber === n);
 
         if (!nextEpisode && hasNumber(current.episodeNumber + 1)) {
           nextEpisode = await this.discoveryService

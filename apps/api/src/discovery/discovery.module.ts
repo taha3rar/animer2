@@ -6,19 +6,26 @@ import { AnizoneEpisodesService } from "./anizone-episodes.service";
 import { AnizoneVideoService } from "./anizone-video.service";
 import { AnizoneProxyController } from "./anizone-proxy.controller";
 import { AnizoneProxyService } from "./anizone-proxy.service";
+import { AnimeheavenService } from "./animeheaven.service";
+import { AnimeheavenEpisodesService } from "./animeheaven-episodes.service";
+import { AnimeheavenVideoService } from "./animeheaven-video.service";
+import { AnimeheavenController } from "./animeheaven.controller";
 import { DiscoveryController } from "./discovery.controller";
 import { DiscoveryService } from "./discovery.service";
 
 @Module({
   imports: [AuthModule, DatabaseModule],
-  controllers: [DiscoveryController, AnizoneProxyController],
+  controllers: [DiscoveryController, AnizoneProxyController, AnimeheavenController],
   providers: [
     AnizoneService,
     AnizoneEpisodesService,
     AnizoneVideoService,
     AnizoneProxyService,
+    AnimeheavenService,
+    AnimeheavenEpisodesService,
+    AnimeheavenVideoService,
     DiscoveryService,
   ],
-  exports: [DiscoveryService, AnizoneEpisodesService],
+  exports: [DiscoveryService, AnizoneEpisodesService, AnimeheavenEpisodesService],
 })
 export class DiscoveryModule {}

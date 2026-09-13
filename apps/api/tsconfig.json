@@ -18,5 +18,7 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true
-  }
+  },
+  "include": ["src/**/*.ts", "seed/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

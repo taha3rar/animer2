@@ -13,6 +13,7 @@ import { WatchHistory, WatchHistorySchema } from "./schemas/watch-history.schema
 import { WatchlistItem, WatchlistItemSchema } from "./schemas/watchlist-item.schema";
 import { FavoriteItem, FavoriteItemSchema } from "./schemas/favorite-item.schema";
 import { AnizoneEpisodeCache, AnizoneEpisodeCacheSchema } from "./schemas/anizone-episode-cache.schema";
+import { AnimeheavenEpisodeCache, AnimeheavenEpisodeCacheSchema } from "./schemas/animeheaven-episode-cache.schema";
 
 // Every model is registered here, once, and every feature module (including
 // apps/api/src/discovery) imports DatabaseModule to inject whichever it needs —
@@ -31,6 +32,7 @@ const models = MongooseModule.forFeature([
   { name: WatchlistItem.name, schema: WatchlistItemSchema },
   { name: FavoriteItem.name, schema: FavoriteItemSchema },
   { name: AnizoneEpisodeCache.name, schema: AnizoneEpisodeCacheSchema },
+  { name: AnimeheavenEpisodeCache.name, schema: AnimeheavenEpisodeCacheSchema },
 ]);
 
 @Module({

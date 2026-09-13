@@ -1,4 +1,3 @@
-import Hls from "hls.js";
 import type {
   LoadOptions,
   PlayerAdapter,
@@ -10,20 +9,18 @@ type Handler<K extends keyof PlayerAdapterEvents> = (
   payload: PlayerAdapterEvents[K]
 ) => void;
 
-const HLS_URL_PATTERN = /\.m3u8(\?|$)/i;
-
 /**
- * Wraps a plain HTMLVideoElement. Used by the browser dev build and by the webOS
- * client, since webOS's native video playback is exposed through a standard
- * HTML5 <video> element. Sources ending in .m3u8 go through hls.js whenever it's
- * supported at all (see the native-HLS caveat in load() below) — native <video src>
- * is only the last-resort fallback for platforms hls.js genuinely can't run on.
+ * Wraps a plain HTMLVideoElement. Used by the browser dev build and by the
+ * webOS client, since webOS's native video playback is exposed through a
+ * standard HTML5 <video> element. The active source (AnimeHeaven) only ever
+ * serves plain progressive MP4 with range-request support — native
+ * `<video src>` handles that natively with no extra machinery, so there's no
+ * HLS/hls.js path here (that only mattered for the AniZone source, which
+ * this app no longer uses for playback).
  */
 export class Html5PlayerAdapter implements PlayerAdapter {
   private video: HTMLVideoElement;
   private trackEl: HTMLTrackElement | null = null;
-  private sourceEl: HTMLSourceElement | null = null;
-  private hls: Hls | null = null;
   private listeners = new Map<keyof PlayerAdapterEvents, Set<Handler<any>>>();
   private domCleanup: Array<() => void> = [];
   private textTracksChangeCleanup: (() => void) | null = null;
@@ -59,87 +56,10 @@ export class Html5PlayerAdapter implements PlayerAdapter {
   }
 
   async load(src: string, options: LoadOptions = {}): Promise<void> {
-    this.destroyHls();
-    // canPlayType("application/vnd.apple.mpegurl") is only trustworthy as a
-    // capability signal on Safari — some smart TVs (confirmed: webOS 6, LG
-    // 55UP7750PVB) report non-empty here despite native playback then failing
-    // with MEDIA_ELEMENT_ERROR: Format error. So hls.js is used whenever it
-    // says it's supported at all, and native is only the fallback when it
-    // isn't — not the other way around.
-    const useHlsJs = HLS_URL_PATTERN.test(src) && Hls.isSupported();
-
-    if (useHlsJs) {
-      const hls = new Hls();
-      let mediaErrorRecoveries = 0;
-      const MAX_MEDIA_ERROR_RECOVERIES = 3;
-      // Without this, a failed manifest/segment/key load (bad proxy response,
-      // network hiccup, CORS, etc) fails completely silently — no DOM "error"
-      // event fires since hls.js is doing its own fetching outside the native
-      // <video> element's normal resource-loading pipeline.
-      //
-      // Per hls.js's recommended pattern, a fatal error isn't necessarily
-      // unrecoverable: NETWORK_ERROR can usually just retry the failed load,
-      // and MEDIA_ERROR (decode pipeline failures — seen on this TV's hardware
-      // decoder with certain HLS renditions) can often self-heal via
-      // recoverMediaError(), which re-attaches the MediaSource without a full
-      // player reload. Only give up (bubble to the app's heavier full-reload
-      // recovery) for other fatal error types or once recovery keeps failing.
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        // eslint-disable-next-line no-console
-        console.error("[Html5PlayerAdapter] hls.js error", data);
-        if (!data.fatal) return;
-
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          hls.startLoad();
-          return;
-        }
-        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaErrorRecoveries < MAX_MEDIA_ERROR_RECOVERIES) {
-          mediaErrorRecoveries++;
-          // recoverMediaError() alone just re-attaches and lets ABR pick a
-          // level again — usually the SAME level that just failed to decode
-          // (confirmed on this TV: 1080p's High10-profile encoding fails to
-          // decode in hardware every time, while 360p/720p play fine), so
-          // without this the player loops forever recovering into the same
-          // broken level. Permanently cap ABR below whichever level was
-          // active when the decode failed.
-          const failedLevel = hls.currentLevel;
-          if (failedLevel > 0) {
-            hls.autoLevelCapping = failedLevel - 1;
-          }
-          hls.recoverMediaError();
-          return;
-        }
-
-        this.emit("error", { message: `HLS playback error (${data.details}): ${data.type}` });
-      });
-      // Forward progress after a recovery means it actually worked — reset the
-      // counter so a later, unrelated decode hiccup gets its own full retry
-      // budget instead of inheriting an exhausted one from much earlier.
-      hls.on(Hls.Events.FRAG_BUFFERED, () => {
-        mediaErrorRecoveries = 0;
-      });
-      hls.attachMedia(this.video);
-      // hls.js fetches the manifest/segments itself via fetch/XHR, which — unlike
-      // native <video src> loading — enforces CORS, so a CORS-restricted source
-      // (AniZone's video CDN only allows Access-Control-Allow-Origin: https://anizone.to)
-      // needs the same-origin proxy here.
-      hls.loadSource(options.toProxyUrl ? options.toProxyUrl(src) : src);
-
-      this.hls = hls;
-    } else {
-      // Native <video src> loading isn't subject to CORS (unlike fetch/XHR),
-      // so the raw CORS-restricted URL works directly here and proxying would
-      // only add a redundant hop.
-      this.video.src = src;
-    }
-
+    this.video.src = src;
     this.video.autoplay = options.autoplay ?? false;
-    await this.setSource(src);
     await this.setSubtitleUrl(options.subtitleUrl ?? null);
-
-    if (!useHlsJs) {
-      this.video.load();
-    }
+    this.video.load();
 
     if (options.startAtSeconds && options.startAtSeconds > 0) {
       await new Promise<void>((resolve) => {
@@ -240,12 +160,8 @@ export class Html5PlayerAdapter implements PlayerAdapter {
     };
 
     // Dynamically-added tracks don't reliably honor `default` in every
-    // browser, and even once forced "showing" here, hls.js parses the
-    // manifest asynchronously right after this call and can flip text-track
-    // modes behind our back on its own schedule — this was why subtitles
-    // stayed off until the viewer manually reselected one (which re-runs
-    // this after hls.js has already settled). A persistent "change" listener
-    // re-asserts "showing" against whichever one wins the race, instead of
+    // browser — a persistent "change" listener re-asserts "showing" against
+    // whichever track wins the browser's own selection race, instead of
     // trusting a single one-shot "load" event to land at the right time.
     track.addEventListener("load", forceShowing);
     this.video.textTracks.addEventListener("change", forceShowing);
@@ -254,19 +170,6 @@ export class Html5PlayerAdapter implements PlayerAdapter {
     this.video.appendChild(track);
     this.trackEl = track;
     forceShowing();
-  }
-
-    async setSource(url: string | null): Promise<void> {
-    if (this.sourceEl) {
-      this.sourceEl.remove();
-      this.sourceEl = null;
-    }
-    if (!url) return;
-    const source = document.createElement("source");
-    source.src = url;
-    source.type = "application/x-mpegurl";
-    this.video.appendChild(source);
-    this.sourceEl = source;
   }
 
   async setAudioTrack(trackId: string): Promise<void> {
@@ -292,27 +195,19 @@ export class Html5PlayerAdapter implements PlayerAdapter {
   }
 
   destroy(): void {
-    this.destroyHls();
     this.domCleanup.forEach((fn) => fn());
     this.domCleanup = [];
     this.listeners.clear();
 
     // Without this, a fresh adapter recreated on the same <video> (e.g. the
-    // player's error-recovery reload) starts from a null trackEl/sourceEl of
-    // its own and has no idea this element's leftovers are still attached —
-    // each reload would leave one more <track> stacked on top of the last,
+    // player's error-recovery reload) starts from a null trackEl of its own
+    // and has no idea this element's leftovers are still attached — each
+    // reload would leave one more <track> stacked on top of the last,
     // rendering duplicate/overlapping subtitles.
     this.trackEl?.remove();
     this.trackEl = null;
-    this.sourceEl?.remove();
-    this.sourceEl = null;
 
     this.textTracksChangeCleanup?.();
     this.textTracksChangeCleanup = null;
-  }
-
-  private destroyHls(): void {
-    this.hls?.destroy();
-    this.hls = null;
   }
 }

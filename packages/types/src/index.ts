@@ -28,6 +28,7 @@ export type Series = {
   releaseYear?: number | null;
   sourceSlug?: string | null;
   sourceUrl?: string | null;
+  sourceProvider?: "anizone" | "animeheaven" | null;
 };
 
 export type Season = {

@@ -22,12 +22,6 @@ export type LoadOptions = {
   autoplay?: boolean;
   startAtSeconds?: number;
   subtitleUrl?: string | null;
-  /** Rewrites a CORS-restricted URL (e.g. through a same-origin proxy) for use
-   * by hls.js's fetch/XHR-based loading, which enforces CORS. Not applied
-   * when the platform plays HLS natively via <video src> (Safari, some smart
-   * TVs) — native media loading isn't subject to CORS the way fetch/XHR is,
-   * so proxying there only adds a redundant hop and can break playback. */
-  toProxyUrl?: (url: string) => string;
 };
 
 export interface PlayerAdapter {

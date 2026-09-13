@@ -1,6 +1,6 @@
 <div class="screen home-shell">
   <div class="app-header home-header">
-    <span class="brand">PrivateFlix</span>
+    <span class="brand">PrivateFlix<span class="brand-version">{{ appVersion }}</span></span>
     <button appFocusable class="profile-chip" (click)="switchProfile()">
       <span class="avatar-circle">{{ activeProfile()!.name.charAt(0).toUpperCase() }}</span>
       {{ activeProfile()!.name }}
@@ -8,24 +8,31 @@
   </div>
 
   <div class="home-search-wrap">
-    <form class="search-bar" (submit)="handleSearchSubmit($event)">
-      <app-icon name="search" class="search-bar-icon" />
-      <input
-        appFocusable
-        appDefaultFocus
-        type="search"
-        placeholder="Search AniZone for anime to add…"
-        [(ngModel)]="searchInput"
-        name="search"
-      />
-      <button appFocusable type="submit" class="search-bar-submit" [disabled]="!searchInput.trim() || searching()">
-        @if (searching()) {
-          <span class="spinner spinner-sm"></span> Searching…
-        } @else {
-          <app-icon name="search" /> Search
-        }
+    @if (!searchActive()) {
+      <button appFocusable appDefaultFocus type="button" class="search-bar search-bar-decoy" (click)="activateSearch()">
+        <app-icon name="search" class="search-bar-icon" />
+        <span class="search-bar-decoy-text">{{ searchInput || 'Search AnimeHeaven for anime to add…' }}</span>
       </button>
-    </form>
+    } @else {
+      <form class="search-bar" (submit)="handleSearchSubmit($event)">
+        <app-icon name="search" class="search-bar-icon" />
+        <input
+          #searchInputEl
+          appFocusable
+          type="search"
+          placeholder="Search AnimeHeaven for anime to add…"
+          [(ngModel)]="searchInput"
+          name="search"
+        />
+        <button appFocusable type="submit" class="search-bar-submit" [disabled]="!searchInput.trim() || searching()">
+          @if (searching()) {
+            <span class="spinner spinner-sm"></span> Searching…
+          } @else {
+            <app-icon name="search" /> Search
+          }
+        </button>
+      </form>
+    }
   </div>
 
   @if (!initialLoading() && heroItem(); as hero) {

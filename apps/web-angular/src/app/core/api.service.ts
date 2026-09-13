@@ -139,10 +139,31 @@ export class ApiService {
   }
 
   // Resolves one episode on demand (Mongo find-or-scrape server-side) — call
-  // this right before navigating to it, not as a bulk upfront import.
+  // this right before navigating to it, not as a bulk upfront import. Same
+  // route regardless of the series' source provider (AniZone/AnimeHeaven) —
+  // the backend branches on Series.sourceProvider, see discovery.service.ts.
   resolveAnizoneEpisode(seriesId: string, episodeNumber: number): Promise<Episode> {
     return firstValueFrom(
       this.http.post<Episode>(`${this.baseUrl}/discovery/anizone/series/${seriesId}/episode/${episodeNumber}`, {})
+    );
+  }
+
+  // --- Discovery (AnimeHeaven metadata search/import) ---
+  // Shares AnizoneSearchResult/Series's shapes — see animeheaven.service.ts.
+
+  searchAnimeheaven(q: string): Promise<AnizoneSearchResult> {
+    return firstValueFrom(
+      this.http.get<AnizoneSearchResult>(`${this.baseUrl}/discovery/animeheaven/search`, { params: { q } })
+    );
+  }
+
+  importAnimeheavenSeries(input: { slug: string; title: string; coverUrl?: string }): Promise<Series> {
+    return firstValueFrom(this.http.post<Series>(`${this.baseUrl}/discovery/animeheaven/import`, input));
+  }
+
+  getAnimeheavenEpisodes(slug: string): Promise<AnizoneEpisode[]> {
+    return firstValueFrom(
+      this.http.get<AnizoneEpisode[]>(`${this.baseUrl}/discovery/animeheaven/${encodeURIComponent(slug)}/episodes`)
     );
   }
 

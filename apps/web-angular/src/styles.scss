@@ -294,6 +294,19 @@ button {
   letter-spacing: 0.5px;
 }
 
+.brand-version {
+  display: inline-block;
+  margin-left: 0.6em;
+  font-size: 0.35em;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: rgba(255, 255, 255, 0.4);
+  vertical-align: middle;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  background: none;
+}
+
 .player-shell {
   position: fixed;
   inset: 0;
@@ -749,6 +762,28 @@ button {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15);
 }
 
+// Looks like the real search input (so swapping between the two is
+// seamless) but is an actual <button> underneath — see home.page.ts's
+// searchActive/activateSearch for why: a <button> never triggers the
+// on-screen keyboard just from being focused, so it's safe as the page's
+// very first D-pad landing spot. The real <input> only appears once this
+// is explicitly activated (click or D-pad OK).
+.search-bar-decoy {
+  width: 100%;
+  padding: 14px 14px 14px 42px;
+  border-radius: 8px;
+  font-size: 1rem;
+  text-align: left;
+}
+
+.search-bar-decoy-text {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.6;
+}
+
 /* -- Card polish: gradient title, focus lift, play affordance -- */
 
 .card {
@@ -794,10 +829,20 @@ button {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
+  gap: 1.5vh;
   align-items: center;
   justify-content: center;
   z-index: 2;
   pointer-events: none;
+  text-align: center;
+}
+
+.player-buffering p {
+  max-width: 60vw;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  margin: 0;
 }
 
 /* -- Episode list (preview modal / series page detail) -- */
@@ -805,7 +850,10 @@ button {
 .episode-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  // Flexbox `gap` is silently ignored on webOS's older embedded browser
+  // engine (no visible error, rows just render with zero spacing and
+  // overlap) — margin on the children is the only spacing that works on
+  // every target, so it's used here instead despite `gap` being simpler.
   max-height: 46vh;
   overflow-y: auto;
   margin-top: 6px;
@@ -822,12 +870,19 @@ button {
 
 .episode-row {
   display: flex;
-  gap: 14px;
   align-items: center;
   width: 100%;
+  // A <button> as a flex container has a real, long-standing WebKit bug
+  // (still present in webOS's embedded engine): it doesn't grow to fit a
+  // tall flex child — it stays at the UA stylesheet's default button
+  // height (~20px) instead, so the 68px-tall thumbnail overflowed into
+  // neighboring rows despite `overflow: visible` looking harmless. Forcing
+  // the height explicitly sidesteps the auto-sizing bug entirely.
+  min-height: 68px;
   padding: 8px;
   border-radius: 8px;
   text-align: left;
+  margin-bottom: 8px;
 }
 
 .episode-row-thumb {
@@ -838,6 +893,7 @@ button {
   border-radius: 6px;
   overflow: hidden;
   background: #333;
+  margin-right: 14px;
 }
 
 .episode-row-thumb img {
@@ -886,19 +942,20 @@ button {
 .episode-row-title-line {
   display: flex;
   align-items: baseline;
-  gap: 8px;
 }
 
 .episode-row-number {
   font-weight: 700;
   opacity: 0.7;
   flex-shrink: 0;
+  margin-right: 8px;
 }
 
 .episode-row-title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-right: 8px;
 }
 
 .episode-row-badge {

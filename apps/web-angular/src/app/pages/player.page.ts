@@ -148,7 +148,6 @@ export class PlayerPageComponent implements OnDestroy {
   episodeContext = signal<EpisodeContext | undefined>(undefined);
 
   preferences = signal<ProfilePreferences | undefined>(undefined);
-  originalSubtitles="";
   continueWatching = signal<
     {
       episodeId?: string;
@@ -332,11 +331,8 @@ export class PlayerPageComponent implements OnDestroy {
         resumeAt > 5
           ? resumeAt
           : 0,
-      subtitleUrl: this.originalSubtitles,
-      toProxyUrl: toPlayableUrl,
+      subtitleUrl: this.subtitleBlobUrl(),
     });
-    
-    adapter.play();
   }
 
   // ===========================================================================
@@ -607,11 +603,16 @@ export class PlayerPageComponent implements OnDestroy {
             resumeAt,
           subtitleUrl:
             this.subtitleBlobUrl(),
-          toProxyUrl: toPlayableUrl,
         },
       );
 
-      this.reloadAttempts=0;
+      // Deliberately NOT resetting reloadAttempts here — load() resolving
+      // just means playback started, not that it's actually working. A
+      // source that's fundamentally undecodable on this hardware fails
+      // again within a second of every reload; zeroing the counter here
+      // made that loop forever at "attempt 1/3" and never reach the
+      // ceiling below. The only legitimate reset is the 'play' handler
+      // above, which waits for PLAYER_RELOAD_RESET_MS of real playback.
     } catch (error) {
       console.error(
         'Player recovery failed:',
@@ -1234,7 +1235,6 @@ export class PlayerPageComponent implements OnDestroy {
           track.url,
         ),
       });
-      this.originalSubtitles=url
     this.subtitleBlobUrl.set(
       url,
     );

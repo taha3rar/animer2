@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import type { AnizoneSearchItem, ContinueWatchingItem, FavoriteEntry, Movie, Series } from '@streaming/types';
@@ -13,6 +13,7 @@ import { AnizoneResultCardComponent } from '../components/anizone-result-card.co
 import { AnizonePreviewModalComponent } from '../components/anizone-preview-modal.component';
 import { SkeletonRowComponent } from '../components/skeleton-row.component';
 import { IconComponent } from '../components/icon.component';
+import { APP_VERSION } from '../version';
 
 type HeroItem = {
   title: string;
@@ -49,7 +50,20 @@ export class HomePageComponent {
   private router = inject(Router);
 
   protected Math = Math;
+  protected readonly appVersion = APP_VERSION;
   activeProfile = this.profileService.activeProfile;
+
+  @ViewChild('searchInputEl') private searchInputEl?: ElementRef<HTMLInputElement>;
+
+  // Starts as a plain button (searchActive = false) rather than the real
+  // <input> so it can safely be the very first D-pad focus target — focusing
+  // a real <input> on webOS pops the on-screen keyboard immediately, which
+  // was firing just from incidental arrow-key navigation, not an actual
+  // intent to search. Swapping to the real input (and calling .focus() on
+  // it) only happens in activateSearch(), itself only reachable via a click
+  // or D-pad OK press on the button — the same "you asked for this" gesture
+  // a real click already was.
+  searchActive = signal(false);
 
   searchInput = '';
   submittedQuery = signal('');
@@ -126,6 +140,13 @@ export class HomePageComponent {
     this.router.navigateByUrl(url);
   }
 
+  activateSearch(): void {
+    this.searchActive.set(true);
+    // The real <input> doesn't exist in the DOM until the @if branch above
+    // re-renders on the next tick — focus() has to wait for that.
+    requestAnimationFrame(() => this.searchInputEl?.nativeElement.focus());
+  }
+
   switchProfile(): void {
     this.profileService.clearActiveProfile();
     this.router.navigateByUrl('/profiles');
@@ -163,7 +184,7 @@ export class HomePageComponent {
     this.searching.set(true);
     this.searchError.set(false);
     try {
-      const results = await this.api.searchAnizone(query);
+      const results = await this.api.searchAnimeheaven(query);
       this.searchResults.set(results);
     } catch {
       this.searchError.set(true);
@@ -176,12 +197,10 @@ export class HomePageComponent {
   async handleImport(item: AnizoneSearchItem): Promise<void> {
     this.importingSlug.set(item.slug);
     try {
-      const imported = await this.api.importAnizoneSeries({
+      const imported = await this.api.importAnimeheavenSeries({
         slug: item.slug,
         title: item.title,
-        sourceUrl: item.sourceUrl,
         coverUrl: item.coverUrl ?? undefined,
-        startYear: item.startYear ?? undefined,
       });
       const refreshed = await this.api.getSeriesList();
       this.series.set(refreshed);

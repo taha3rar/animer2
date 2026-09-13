@@ -21,8 +21,12 @@ export type IntroOverride = {
 const OPENING_TITLE_PATTERN = /\b(opening|op\d*|intro)\b/i;
 const ENDING_TITLE_PATTERN = /\b(ending|ed\d*|outro)\b/i;
 
-// Real intros/outros run up to about a minute and a half.
-const OPENING_MAX_DURATION_SECONDS = 90;
+// Real intros/outros run up to about a minute and a half — a bit of slack
+// past that (confirmed: Naruto's OP1 chapter is ~92s) avoids rejecting a
+// genuine intro over a couple of seconds' difference in where a release
+// draws the chapter boundary, while still excluding a first chapter that's
+// clearly more than just an intro (e.g. a longer cold open before it).
+const OPENING_MAX_DURATION_SECONDS = 100;
 // ... and an ending chapter never starts before this point.
 const ENDING_MIN_START_SECONDS = 15 * 60;
 

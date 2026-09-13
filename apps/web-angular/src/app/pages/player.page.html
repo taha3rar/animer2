@@ -1,5 +1,5 @@
 <div class="player-shell" (mousemove)="showControls()">
-  <video #video></video>
+  <video #video referrerpolicy="no-referrer"></video>
 
   @if (loading()) {
     <div class="player-buffering"><span class="spinner"></span></div>
