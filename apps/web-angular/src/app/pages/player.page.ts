@@ -188,7 +188,6 @@ export class PlayerPageComponent implements OnDestroy {
       const id = params.get('id')!;
 
       this.isEpisode = kind === 'episode';
-      this.id = id;
 
       this.loadForRoute(kind, id);
     });
@@ -216,7 +215,15 @@ export class PlayerPageComponent implements OnDestroy {
   ): Promise<void> {
     this.loading.set(true);
 
+    // teardownAdapter() saves the outgoing episode/movie's progress under
+    // `this.id` — it must run while `this.id` still points at the episode
+    // being left, or the save mislabels the leaving episode's position onto
+    // the one being navigated to (this bit us for real: an old "Next episode"
+    // bug once sent playback from episode 7 to episode 20, and the progress
+    // save on that transition tagged episode 7's near-finished position onto
+    // episode 20's record instead).
     this.teardownAdapter();
+    this.id = id;
 
     this.reloadAttempts = 0;
     this.isReloadingPlayer = false;
