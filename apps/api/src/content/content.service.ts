@@ -77,11 +77,17 @@ export class ContentService {
     const seasonEpisodes = (
       await this.episodeModel.find({ seasonId: current.seasonId }).sort({ episodeNumber: "asc" })
     ).map(toRef) as EpisodeRef[];
-    const index = seasonEpisodes.findIndex((e) => e.id === current.id);
 
-    let previousEpisode = index > 0 ? seasonEpisodes[index - 1] : null;
-    let nextEpisode =
-      index >= 0 && index < seasonEpisodes.length - 1 ? seasonEpisodes[index + 1] : null;
+    // Look up by episode number, not by array position — episodes are created
+    // on demand (see DiscoveryService.getOrCreateEpisode), so it's normal for
+    // the documents that exist so far to have gaps (e.g. 1-4 and 20-22 exist,
+    // 5-19 don't yet). Using "the next document in the sorted array" as "the
+    // next episode" jumps straight over a gap like that instead of falling
+    // through to the on-demand scrape below.
+    const findByNumber = (n: number) => seasonEpisodes.find((e) => e.episodeNumber === n) ?? null;
+
+    let previousEpisode = findByNumber(current.episodeNumber - 1);
+    let nextEpisode = findByNumber(current.episodeNumber + 1);
 
     const season = await this.seasonModel.findById(current.seasonId);
 
